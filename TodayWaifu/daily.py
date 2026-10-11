@@ -561,7 +561,7 @@ def _assignment_role_name(ev: Event, target_user_id: str) -> str:
     for prefix in ('给', '把', '将', '为'):
         if text.startswith(prefix):
             text = text[len(prefix) :].strip()
-    for word in ('分配老婆', '分配今日老婆', '分配', '老婆'):
+    for word in ('分配老婆', '分配今日老婆', '分配老公', '分配今日老公', '分配', '老婆', '老公'):
         text = text.replace(word, ' ')
     return re.sub(r'\s+', ' ', text).strip()
 
@@ -577,52 +577,58 @@ def _find_assignable_wife(candidates: tuple[RoleCandidate, ...], role_name: str)
     return None
 
 
-async def _send_assign_wife(bot: Bot, ev: Event) -> None:
-    logger.info(f'{LOG_PREFIX} 用户 {ev.user_id} 发起主人分配老婆命令')
+async def _send_assign_daily(bot: Bot, ev: Event, kind: str = 'wife') -> None:
+    title = _daily_item_title(kind)
+    # 老公功能未启用时不存在可分配的对象：与抢/送老公保持同一入口判定，静默忽略
+    if kind == 'husband' and not _husband_available():
+        return
+    logger.info(f'{LOG_PREFIX} 用户 {ev.user_id} 发起主人分配{title}命令')
     if not _can_assign_wife(ev):
-        return await _safe_send(bot, '只有机器人主人或分配老婆白名单用户可以分配老婆。')
+        return await _safe_send(bot, f'只有机器人主人或分配{title}白名单用户可以分配{title}。')
 
     target_user_id = _get_event_target_user_id(ev)
     if not target_user_id:
-        return await _safe_send(bot, '要分配给谁？用法：分配老婆 @对方 角色名')
+        return await _safe_send(bot, f'要分配给谁？用法：分配{title} @对方 角色名')
 
     role_name = _assignment_role_name(ev, str(target_user_id))
     if not role_name:
-        return await _safe_send(bot, '要分配哪个老婆？用法：分配老婆 @对方 角色名')
+        return await _safe_send(bot, f'要分配哪个{title}？用法：分配{title} @对方 角色名')
 
-    candidates, error = await _load_candidates('wife')
+    candidates, error = await _load_candidates(kind)
     if error or not candidates:
         return await _safe_send(bot, error or '没有找到可用角色。')
 
-    candidates = _filter_by_mode(candidates, 'wife')
+    candidates = _filter_by_mode(candidates, kind)
     role = _find_assignable_wife(candidates, role_name)
     if role is None:
-        return await _safe_send(bot, f'未找到名为“{role_name}”的老婆角色。')
+        return await _safe_send(bot, f'未找到名为“{role_name}”的{title}角色。')
 
     record = _pick_role_record((role,), random)
     if record is None:
-        logger.warning(f'{LOG_PREFIX} 主人分配老婆未找到可用图片: {role.name}')
-        return await _safe_send(bot, f'未找到“{role.name}”可用的老婆图片。')
+        logger.warning(f'{LOG_PREFIX} 主人分配{title}未找到可用图片: {role.name}')
+        return await _safe_send(bot, f'未找到“{role.name}”可用的{title}图片。')
     image = record.image
     target_key = str(target_user_id)
 
     assigned_record = _record_to_dict(record, ev, target_key)
     assigned_record['assigned_by'] = _user_key(ev)
     assigned_record['assigned_by_name'] = name_from_event(ev)
-    deletes = [('safe_wives', target_key)]
+    # 分配老婆需连带清除补偿记录（safe_wives 与 wives 同人同日互斥）；老公模式无补偿桶，不删除
+    deletes = [('safe_wives', target_key)] if kind == 'wife' else []
     async with _daily_context_lock(ev):
-        await _save_daily_records(ev, [('wives', target_key, assigned_record)], deletes)
+        await _save_daily_records(ev, [(_daily_bucket_name(kind), target_key, assigned_record)], deletes)
 
     logger.info(
-        f'{LOG_PREFIX} 主人 {ev.user_id} 将老婆 {role.name} 分配给 {target_key}, ids={role.role_ids} image={image}'
+        f'{LOG_PREFIX} 主人 {ev.user_id} 将{title} {role.name} 分配给 {target_key}, ids={role.role_ids} image={image}'
     )
     await _send_role_image(
         bot,
         role,
         image,
-        f'已把今天的老婆{role.name}分配给对方。',
+        f'已把今天的{title}{role.name}分配给对方。',
         target_key,
         ev.group_id is not None,
+        kind,
     )
 
 
@@ -844,7 +850,7 @@ async def daily_wife_list(bot: Bot, ev: Event) -> None:
     aliases=['今日老婆·分配老婆'],
 )
 async def assign_wife(bot: Bot, ev: Event) -> None:
-    await _send_assign_wife(bot, ev)
+    await _send_assign_daily(bot, ev, 'wife')
 
 
 @assign_wife_sv.on_fullmatch(
@@ -859,7 +865,37 @@ async def assign_wife(bot: Bot, ev: Event) -> None:
     aliases=['今日老婆·分配老婆用法'],
 )
 async def assign_wife_usage(bot: Bot, ev: Event) -> None:
-    await _send_assign_wife(bot, ev)
+    await _send_assign_daily(bot, ev, 'wife')
+
+
+@assign_wife_sv.on_prefix(
+    ('分配老公', '分配今日老公'),
+    block=True,
+    to_ai="""为指定用户分配今日老公。
+    该功能需要在控制台开启今日老公。当管理员或用户说“给某人分配老公”“分配今日老公 @某人 角色名”时调用。
+    Args:
+        text: 分配参数，通常包含目标用户和老公名，例如“@用户 漂泊者”。
+    """,
+    covers=['机器人主人为指定用户分配今日老公（含角色名）'],
+    aliases=['今日老婆·分配老公'],
+)
+async def assign_husband(bot: Bot, ev: Event) -> None:
+    await _send_assign_daily(bot, ev, 'husband')
+
+
+@assign_wife_sv.on_fullmatch(
+    ('分配老公', '分配今日老公'),
+    block=True,
+    to_ai="""显示分配今日老公的用法。
+    当用户只说“分配老公”但没有提供目标或角色名时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+    covers=['「分配老公」的用法说明'],
+    aliases=['今日老婆·分配老公用法'],
+)
+async def assign_husband_usage(bot: Bot, ev: Event) -> None:
+    await _send_assign_daily(bot, ev, 'husband')
 
 
 @specify_wife_sv.on_prefix(

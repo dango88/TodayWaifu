@@ -80,7 +80,7 @@ class AssignWifeAccessTests(unittest.TestCase):
         self.assertIn("'_can_assign_wife'", _source('TodayWaifu/shared.py'))
 
     def test_assign_handler_uses_whitelist_gate(self) -> None:
-        handler = _function_source('TodayWaifu/daily.py', '_send_assign_wife')
+        handler = _function_source('TodayWaifu/daily.py', '_send_assign_daily')
         self.assertIn('_can_assign_wife(ev)', handler)
         # 处理器内不得再自行判断主人身份：绕过统一门会出现「进了函数但判定口径不同」
         # 的双重鉴权，白名单用户在此被拒则前面放行的白名单配置形同虚设。

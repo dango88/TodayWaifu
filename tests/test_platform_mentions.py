@@ -200,10 +200,10 @@ class PlatformMentionTests(unittest.TestCase):
         self.assertIn('_send_loli_result_image(', source)
 
     def test_assignment_has_no_platform_specific_branch(self) -> None:
-        # 分配老婆走统一的 _send_role_image，不得出现平台专用分支：分支一旦存在，
+        # 分配老婆/分配老公走统一的 _send_role_image，不得出现平台专用分支：分支一旦存在，
         # 新增平台时该功能会被静默绕过，表现为特定协议端收不到分配结果图。
         source = (ROOT / 'TodayWaifu' / 'daily.py').read_text(encoding='utf-8')
-        assignment_start = source.index('async def _send_assign_wife(')
+        assignment_start = source.index('async def _send_assign_daily(')
         assignment_end = source.index('\nasync def ', assignment_start + 1)
         assignment = source[assignment_start:assignment_end]
         self.assertNotIn('official_qq_mention', assignment)
