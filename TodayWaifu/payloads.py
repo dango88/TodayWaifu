@@ -43,6 +43,8 @@ class RoleRecordValue(TypedDict, total=False):
     gifted_to: str
     gifted_to_name: str
     gifted_from: str
+    assigned_by: str
+    assigned_by_name: str
     safe: bool
 
 

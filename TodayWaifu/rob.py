@@ -27,6 +27,7 @@ from .shared import (
     _cfg_probability,
     _has_active_wife,
     _daily_item_title,
+    _is_assigned_wife,
     _daily_bucket_name,
     _husband_available,
     _daily_context_lock,
@@ -128,6 +129,9 @@ async def _send_rob_daily(bot: Bot, ev: Event, kind: str = 'wife') -> None:
         # 拒绝原因按优先级互斥判定：条件互不重叠，一旦命中即短路，避免同时消耗次数
         if _wife_state(target_data) != 'owned':
             refusal = f'对方的{title}已经不在身边了，抢不到了哦~'
+        elif _is_assigned_wife(target_data):
+            # 主人分配的老婆归属固定，不参与抢夺流转
+            refusal = f'对方的{title}是主人分配的，抢不动哦~'
         elif _is_secondhand_wife(target_data):
             # 抢来的或别人送的不再流转：否则同一条记录可在群内无限次易手
             refusal = f'对方这个{title}是抢来或别人送的，抢不动哦~'

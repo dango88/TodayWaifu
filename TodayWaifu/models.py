@@ -78,6 +78,8 @@ def _record_origin(raw: object) -> str:
     """派生 origin 列；取值口径须与 shared._wife_origin 一致，否则统计聚合会与业务口径偏离。"""
     if not isinstance(raw, dict):
         return 'self'
+    if raw.get('assigned_by'):
+        return 'assigned'
     if raw.get('stolen_from'):
         return 'robbed'
     if raw.get('gifted_from'):

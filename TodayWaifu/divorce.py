@@ -16,6 +16,7 @@ from .shared import (
     _safe_send,
     divorce_sv,
     _wife_state,
+    _is_assigned_wife,
     _daily_bucket_name,
     _daily_context_lock,
     _load_daily_context,
@@ -148,6 +149,9 @@ async def _send_divorce(bot: Bot, ev: Event, kind: str) -> None:
             response = f'你今天已经和{item_title}离婚了。'
         elif _wife_state(record) != 'owned':
             response = f'你今天没有可以离婚的{item_title}。'
+        elif _is_assigned_wife(record):
+            # 主人分配的老婆归属由主人决定，用户不能单方面解除；如需更换由主人重新分配覆盖。
+            response = f'主人分配的{item_title}不能离婚哦~'
         else:
             # 复制后再改：原 record 可能仍被上下文缓存中的其它引用持有，
             # 就地修改会让未持锁的读取方看到半成品状态。

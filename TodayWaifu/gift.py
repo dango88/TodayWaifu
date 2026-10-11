@@ -30,6 +30,7 @@ from .shared import (
     name_from_event,
     _has_active_wife,
     _daily_item_title,
+    _is_assigned_wife,
     _record_from_dict,
     _daily_bucket_name,
     _husband_available,
@@ -212,6 +213,9 @@ async def _send_gift_daily(bot: Bot, ev: Event, kind: str = 'wife') -> None:
         return await _safe_send(bot, f'你今天已经把{title}送出去了~')
     if state == 'divorced':
         return await _safe_send(bot, f'你今天已经和{title}离婚了，没有{title}可以送了~')
+    if _is_assigned_wife(giver_data):
+        # 主人分配的老婆归属固定，不接受赠送流程
+        return await _safe_send(bot, f'这个{title}是主人分配的，不能送出去哦~')
     # 抢来或别人送的记录不再允许转送，防止同一对象在用户之间被无限接力。
     if _is_secondhand_wife(giver_data):
         return await _safe_send(bot, f'这个{title}是抢来或别人送的，不能再送出去哦~')
@@ -293,6 +297,9 @@ async def _accept_gift_daily(bot: Bot, ev: Event, kind: str = 'wife') -> None:
             response = f'对方已经把{title}送给别人了，赠送已失效~'
         elif state == 'divorced':
             response = f'对方已经和{title}离婚了，赠送已失效~'
+        elif _is_assigned_wife(giver_data):
+            # 主人分配的老婆归属固定；等待窗口内记录可能刚被分配，此处按最新状态拦截
+            response = f'这个{title}是主人分配的，不能送出去，赠送已失效~'
         elif _is_secondhand_wife(giver_data):
             response = f'这个{title}是抢来或别人送的，不能再送出去，赠送已失效~'
         elif _has_active_wife(context[bucket].get(target_user_id)):

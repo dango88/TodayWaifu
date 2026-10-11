@@ -431,13 +431,16 @@ def _wife_state(raw: object) -> str:
 
 
 def _wife_origin(raw: object) -> str:
-    """判定记录的来源：self 自己抽到 / robbed 抢来的 / gifted 别人送的 / safe 补偿发放。
+    """判定记录的来源：self 自己抽到 / robbed 抢来的 / gifted 别人送的 / safe 补偿发放 / assigned 主人分配。
 
     优先级对应字段的写入时序：抢来与送来必然同时带上来源标记，补偿记录则只带 safe
-    标记，因此先判前两者不会误分类。
+    标记，因此先判前两者不会误分类。分配记录由「分配老婆」整条重写产生，只带
+    assigned_by 标记、不会与其它来源标记并存，置于首位仅使其语义优先于历史脏数据。
     """
     if not isinstance(raw, dict):
         return 'self'
+    if raw.get('assigned_by'):
+        return 'assigned'
     if raw.get('stolen_from'):
         return 'robbed'
     if raw.get('gifted_from'):
@@ -450,6 +453,15 @@ def _wife_origin(raw: object) -> str:
 def _is_secondhand_wife(raw: object) -> bool:
     """判定是否为二手老婆：抢来的、别人送的或补偿发放的（到手即终结，不能再流转）。"""
     return _wife_origin(raw) in ('robbed', 'gifted', 'safe')
+
+
+def _is_assigned_wife(raw: object) -> bool:
+    """判定是否为主人分配的老婆：归属由主人指定，不可离婚、被抢或转送。
+
+    与二手判定分开而非并入 `_is_secondhand_wife`：二手阻断流转的文案是「抢来或别人送的」，
+    对分配记录不成立，调用方需要给出各自的拒绝提示。
+    """
+    return isinstance(raw, dict) and bool(raw.get('assigned_by'))
 
 
 def _has_active_wife(raw: object) -> bool:

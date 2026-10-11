@@ -53,6 +53,7 @@ class SafeWifeDivorceTests(unittest.IsolatedAsyncioTestCase):
         }
         self.lock = asyncio.Lock()
         self.namespace['_wife_state'] = _extract_function('daily_store.py', '_wife_state', {})
+        self.namespace['_is_assigned_wife'] = _extract_function('daily_store.py', '_is_assigned_wife', {})
         self.divorce = _extract_function('divorce.py', '_send_divorce', self.namespace)
 
     async def _save(self, ev, updates):
