@@ -27,6 +27,7 @@ from .shared import (
     _safe_send,
     register_help,
 )
+from .version import TodayWaifu_version
 from .executor import run_blocking
 from ..daily_wife_config import DailyWifeShowConfig
 
@@ -216,7 +217,7 @@ async def _render_help(
         )
         return await get_new_help(
             plugin_name='TodayWaifu',
-            plugin_info={'v1.0': ''},
+            plugin_info={f'v{TodayWaifu_version}': ''},
             plugin_icon=icon,
             plugin_help=data,
             plugin_prefix='',
